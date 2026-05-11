@@ -1,12 +1,281 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <title></title>
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="index.css" />
-    <script src="index.js" defer></script>
+    <title>Puppy Bowl</title>
+    <style>
+      body {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      h1 {
+        text-align: center;
+      }
+
+      #roster {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .puppy-card {
+        border: 2px solid lightblue;
+        border-radius: 8px;
+        padding: 10px;
+        width: 150px;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .puppy-card:hover {
+        border-color: darkblue;
+        background-color: darkblue;
+      }
+
+      .puppy-card img {
+        width: 100%;
+        border-radius: 4px;
+      }
+
+      #detail-section {
+        margin-top: 30px;
+        border: 2px solid lightpink;
+        border-radius: 8px;
+        padding: 20px;
+      }
+
+      #detail-section img {
+        width: 200px;
+        border-radius: 8px;
+      }
+
+      #add-form {
+        margin-top: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 300px;
+      }
+
+      #add-form input,
+      #add-form select {
+        padding: 8px;
+        font-size: 1rem;
+      }
+
+      #add-form button {
+        padding: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 8px 16px;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <h1>🏈 2026 Annual Fullstack Puppy Bowl 🏈</h1>
+
+    // this is where the puppies go
+    <div id="roster"></div>
+
+    // this shows info when you click a puppy
+    <div id="detail-section">
+      <p>Click on a puppy to see their details!</p>
+    </div>
+
+    // the form to add a new puppy
+    <h2>Add a New Puppy</h2>
+    <form id="add-form">
+      <input id="input-name" type="text" placeholder="Name" required />
+      <input id="input-breed" type="text" placeholder="Breed" required />
+      <select id="input-team">
+        <option value="">-- No Team --</option>
+        // teams are here, also no team option is here
+      </select>
+      <button type="submit">Add Puppy</button>
+    </form>
+
+    <script>
+      // this is my cohort name so I dont mess with other peoples data
+      const COHORT = "2604-Evan";
+
+      // this is the url I send requests to
+      const BASE_URL = `https://fsa-puppy-bowl.herokuapp.com/api/${COHORT}`;
+
+      // this function runs everything when the page loads
+      async function init() {
+        // call the function that gets all the players
+        await renderAllPlayers();
+        // call the function that fills the team dropdown
+        await populateTeamDropdown();
+      }
+
+      // this function gets all the players and puts them on the page
+      async function renderAllPlayers() {
+        // fetch the players from the api
+        const response = await fetch(`${BASE_URL}/players`);
+
+        // turn the response into json
+        const data = await response.json();
+
+        // put into the data to get the players array
+        const players = data.data.players;
+
+        // find the roster div on the page
+        const roster = document.getElementById("roster");
+
+        // clear whatever was there before
+        roster.innerHTML = "";
+
+        // loop through every player
+        for (const player of players) {
+          // make a new div for this player
+          const card = document.createElement("div");
+
+          // give it the puppy-card class so it gets the css styling
+          card.classList.add("puppy-card");
+
+          // put the image and name inside the card
+          card.innerHTML = `
+          <img src="${player.imageUrl}" alt="${player.name}" />
+          <p>${player.name}</p>
+        `;
+
+          // when someone clicks this card run showPlayerDetail with this player
+          card.addEventListener("click", function () {
+            showPlayerDetail(player);
+          });
+
+          // add the card to the roster div
+          roster.appendChild(card);
+        }
+      }
+
+      // this function shows the details at the bottom of the screen (at least on VSCODE it is at the bottom) for whichever puppy/ player was clicked
+      function showPlayerDetail(player) {
+        // find the detail section div
+        const detailSection = document.getElementById("detail-section");
+
+        // check if the player has a team, if not just say Unassigned
+        const teamName = player.team ? player.team.name : "Unassigned";
+
+        // fill the detail section with all the player info
+        detailSection.innerHTML = `
+        <img src="${player.imageUrl}" alt="${player.name}" />
+        <h2>${player.name}</h2>
+        <p><strong>ID:</strong> ${player.id}</p>
+        <p><strong>Breed:</strong> ${player.breed}</p>
+        <p><strong>Status:</strong> ${player.status}</p>
+        <p><strong>Team:</strong> ${teamName}</p>
+        <button id="remove-btn">Remove from Roster</button>
+      `;
+
+        // find the remove button and wait for a click
+        document
+          .getElementById("remove-btn")
+          .addEventListener("click", function () {
+            // when clicked call removePlayer and pass in this players id
+            removePlayer(player.id);
+          });
+      }
+
+      // this function deletes a player when you click remove
+      async function removePlayer(playerId) {
+        // send a DELETE request to the api for this player id
+        await fetch(`${BASE_URL}/players/${playerId}`, {
+          method: "DELETE",
+        });
+
+        // reload all the players so the deleted one disappears
+        await renderAllPlayers();
+
+        // find the detail section and reset it back to the default message
+        const detailSection = document.getElementById("detail-section");
+        detailSection.innerHTML =
+          "<p>Click on a puppy to see their details!</p>";
+      }
+
+      // this is the form at the bottom of the page
+      const addForm = document.getElementById("add-form");
+
+      // "Listen" (Wait) for when someone submits the form
+      addForm.addEventListener("submit", async function (event) {
+        // stop the page from refreshing when the form is submitted
+        event.preventDefault();
+
+        // grab what the user typed in the name box
+        const name = document.getElementById("input-name").value;
+
+        // grab what the user typed in the breed box
+        const breed = document.getElementById("input-breed").value;
+
+        // grab whatever team they picked from the dropdown for their team
+        const teamId = document.getElementById("input-team").value;
+
+        // make an object with the name and breed to send to the api
+        const body = { name, breed };
+
+        // if they picked a team add it to the body object too
+        if (teamId) {
+          // convert teamId to a number because the api wants a number not a string
+          body.teamId = Number(teamId);
+        }
+
+        // send a "POST" request to add the new player to the list
+        await fetch(`${BASE_URL}/players`, {
+          method: "POST",
+          // tell the api we are sending json
+          headers: { "Content-Type": "application/json" },
+          // turn the body object into a json string
+          body: JSON.stringify(body),
+        });
+
+        // reload all the players so the new one shows up
+        await renderAllPlayers();
+
+        // clear the form so it is blank again
+        addForm.reset();
+      });
+
+      // this function fills the team dropdown with teams from the api
+      async function populateTeamDropdown() {
+        // fetch the teams from the api
+        const response = await fetch(`${BASE_URL}/teams`);
+
+        // turn the response into json
+        const data = await response.json();
+
+        // drill into the data to get the teams array
+        const teams = data.data.teams;
+
+        // find the select dropdown on the page
+        const teamSelect = document.getElementById("input-team");
+
+        // loop through every team
+        for (const team of teams) {
+          // make a new option element
+          const option = document.createElement("option");
+
+          // set the value to the team id
+          option.value = team.id;
+
+          // set the text to the team name so the user can read it
+          option.textContent = team.name;
+
+          // use append so it adds after the default option instead of replacing it
+          teamSelect.append(option);
+        }
+      }
+
+      // run "init" to kick everything off that user created (I believe), like Milito or Evan.
+      init();
+    </script>
   </body>
 </html>
